@@ -754,14 +754,21 @@ def load_accounts_from_file(filename="accs.json"):
                                 'password': password
                             })
             
+            if not accounts:
+                print(f"❌ No valid accounts found in {filename}! Bot will stop.")
+                sys.exit(1)
+                
             print(f"✅ Loaded {len(accounts)} accounts from {filename}")
             
     except FileNotFoundError:
-        print(f"❌ File {filename} not found!")
+        print(f"❌ File {filename} not found! Bot will stop.")
+        sys.exit(1)
     except json.JSONDecodeError:
-        print(f"❌ JSON format error in {filename}!")
+        print(f"❌ JSON format error in {filename}! Bot will stop.")
+        sys.exit(1)
     except Exception as e:
-        print(f"❌ Error reading file: {e}")
+        print(f"❌ Error reading file: {e}. Bot will stop.")
+        sys.exit(1)
     
     return accounts
 
