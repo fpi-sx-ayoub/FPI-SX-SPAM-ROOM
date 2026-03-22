@@ -317,10 +317,12 @@ def ChEck_Commande(id):
         
 def L_DaTa():
     load = lambda f: json.load(open(f)) if os.path.exists(f) else {}
-    return map(load, ["BesTo_CLan_LiKes.json" , "BesTo_RemaininG_LiKes.json" , "BesTo_RemaininG_Room.json"])
+    return list(map(load, ["BesTo_CLan_LiKes.json" , "BesTo_RemaininG_LiKes.json" , "BesTo_RemaininG_Room.json"]))
+
+like_data_clan, like_data, room_data = L_DaTa()
        
 def ChEck_Limit_CLan(Uid , STaTus):
-    data , max_use , file = (like_data_clan, 10, "BesTo_CLan_LiKes.json") if STaTus == "like" else ''
+    data , max_use , file = (like_data_clan, 10, "BesTo_CLan_LiKes.json") if STaTus == "like" else (None, 0, None)
     t , limit = time.time(), 86400
     u = data.get(str(Uid), {"count": 0, "start_time": t})    
     if t - u["start_time"] >= limit:

@@ -26,6 +26,8 @@ def ToK():
 Thread(target=ToK , daemon = True).start()
 
 def GeTToK():  
+    if not os.path.exists("token.txt"):
+        return ""
     with open("token.txt") as f: return f.read().strip()
     
 def Likes(id):
@@ -177,6 +179,8 @@ def DeLet_Uid(id , Tok):
 
 def ChEck_The_Uid(id):
     try:
+        if not os.path.exists('uids.json'):
+            return False
         with open('uids.json', 'r') as f:
             data = json.load(f)
             user_data = data.get(str(id))

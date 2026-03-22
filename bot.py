@@ -1026,21 +1026,26 @@ class FF_CLient():
                             self.Connect_SerVer(Token , tok , host , port , key , iv , host2 , port2)	            		
 
                 except Exception as e:
-                    print(f"Error in Connect_SerVer: {e}")
+                    print(f"Error in Connect_SerVer loop for account {self.id}: {e}")
                     try:
-                        self.CliEnts.close()
-                        if hasattr(self, 'CliEnts2'):
+                        if hasattr(self, 'CliEnts') and self.CliEnts:
+                            self.CliEnts.close()
+                        if hasattr(self, 'CliEnts2') and self.CliEnts2:
                             self.CliEnts2.close()
                     except:
                         pass
-                    time.sleep(5)
+                    
+                    time.sleep(self.retry_delay)
+                    
+                    # محاولة إعادة الاتصال بشكل محدود لتجنب Recursion Depth
                     try:
-                        self.Connect_SerVer(Token , tok , host , port , key , iv , host2 , port2)
-                    except:
-                        print(f"Final reconnection failed for account {self.id}")
-                        with connected_clients_lock:
-                            if self.id in connected_clients:
-                                del connected_clients[self.id]
+                        # بدلاً من استدعاء الدالة نفسها بشكل متكرر، نترك الحلقة الخارجية تتعامل مع الإعادة
+                        # أو نقوم بإعادة تهيئة الاتصال هنا مرة واحدة
+                        print(f"Attempting to reconnect account {self.id}...")
+                        # نخرج من هذه المحاولة للسماح للحلقة أو المنطق الخارجي بإعادة المحاولة
+                        break 
+                    except Exception as re_e:
+                        print(f"Reconnection attempt failed for account {self.id}: {re_e}")
                         break
         except Exception as e:
             print(f"Error in Connect_SerVer initial connection: {e}")
@@ -1135,7 +1140,8 @@ class FF_CLient():
         # إذا فشلت جميع المحاولات، انتظر وحاول مرة أخرى
         print(f"All URLs failed for account {uid}, retrying in {self.retry_delay} seconds...")
         time.sleep(self.retry_delay)
-        return self.Guest_GeneRaTe(uid, password)
+        # نرجع None بدلاً من Recursion للسماح للحلقة الخارجية بالتعامل مع الإعادة
+        return None
                                         
     def GeT_LoGin_PorTs(self , JwT_ToKen , PayLoad):
         self.UrL = 'https://clientbp.ggwhitehawk.com/GetLoginData'
@@ -1225,7 +1231,7 @@ class FF_CLient():
             
         print("Retrying ToKen_GeneRaTe...")
         time.sleep(self.retry_delay)
-        return self.ToKen_GeneRaTe(Access_ToKen, Access_Uid)
+        return None
       
     def Get_FiNal_ToKen_0115(self):
         retry_count = 0
@@ -1296,26 +1302,29 @@ class FF_CLient():
         return None, None, None
 
 def start_account(account):
-    try:
-        print(f"Starting account: {account['id']}")
-        client = FF_CLient(account['id'], account['password'])
-        if client.key and client.iv:
-            print(f"✅ Account {account['id']} connected successfully")
-        else:
-            print(f"⚠️ Account {account['id']} connection incomplete")
-    except Exception as e:
-        print(f"Error starting account {account['id']}: {e}")
-        time.sleep(5)
-        start_account(account)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"Starting account: {account['id']} (Attempt {attempt + 1}/{max_retries})")
+            client = FF_CLient(account['id'], account['password'])
+            if client.key and client.iv:
+                print(f"✅ Account {account['id']} connected successfully")
+                return
+            else:
+                print(f"⚠️ Account {account['id']} connection incomplete")
+        except Exception as e:
+            print(f"Error starting account {account['id']}: {e}")
+        time.sleep(10)
+    print(f"❌ Failed to start account {account['id']} after {max_retries} attempts")
 
 def run_bot():
     print("🤖 Bot started...")
-    try:
-        bot.infinity_polling(timeout=60, long_polling_timeout=60)
-    except Exception as e:
-        print(f"Bot polling error: {e}")
-        time.sleep(5)
-        run_bot()
+    while True:
+        try:
+            bot.infinity_polling(timeout=60, long_polling_timeout=60)
+        except Exception as e:
+            print(f"Bot polling error: {e}")
+            time.sleep(10)
 
 def StarT_SerVer():
     threads = []
