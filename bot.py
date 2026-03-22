@@ -45,8 +45,8 @@ spam_start_times = {}
 spam_start_times_lock = threading.Lock()
 
 # إعدادات TURBO SPEED القصوى 🚀 مع 200 حساب
-MAX_WORKERS = 1000  # 1000 عامل متوازي
-BURST_SIZE = 500    # 500 رسالة في الدفعة
+MAX_WORKERS = 2000  # 1000 عامل متوازي
+BURST_SIZE = 1000    # 500 رسالة في الدفعة
 TURBO_WORKERS_PER_TARGET = 5  # 5 عمال توربو لكل هدف
 SPAM_DURATION_MINUTES = 5  # مدة السبام 5 دقائق ثابتة
 SPAM_DURATION_SECONDS = SPAM_DURATION_MINUTES * 60  # 300 ثانية
@@ -75,7 +75,7 @@ stats_lock = threading.Lock()
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
-    level=logging.INFO
+    level=logging.WARNING
 )
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ def get_player_info(target_id):
             return None, None, None, None
             
     except requests.exceptions.Timeout:
-        print(f"⏰Timeout في جلب بيانات اللاعب {target_id}")
+        logger.debug(f"⏰Timeout في جلب بيانات اللاعب {target_id}")
         return None, None, None, None
     except requests.exceptions.ConnectionError:
         print(f"🔌خطأ في الاتصال لجلب بيانات اللاعب {target_id}")
@@ -797,16 +797,16 @@ def turbo_normal_spam_worker(target_id, duration_minutes, worker_id):
         # التحقق من استمرار السبام
         with active_spam_lock:
             if target_id not in active_spam_targets:
-                print(f"Worker {worker_id} stopping - target {target_id} removed")
+                logger.debug(f"Worker {worker_id} stopping - target {target_id} removed")
                 break
             if not spam_workers_active.get(worker_id, True):
-                print(f"Worker {worker_id} stopping - deactivated")
+                logger.debug(f"Worker {worker_id} stopping - deactivated")
                 break
             
             # التحقق من انتهاء المدة (5 دقائق)
             elapsed = datetime.now() - start_time
             if elapsed.total_seconds() >= duration_seconds:
-                print(f"Worker {worker_id} - 5 minutes completed for {target_id}, stopping...")
+                logger.debug(f"Worker {worker_id} - 5 minutes completed for {target_id}, stopping...")
                 # إيقاف العامل وإزالة الهدف
                 spam_workers_active[worker_id] = False
                 with active_spam_lock:
@@ -856,16 +856,16 @@ def turbo_room_spam_worker(target_id, duration_minutes, worker_id):
     while True:
         with active_spam_lock:
             if target_id not in active_room_spam_targets:
-                print(f"Room worker {worker_id} stopping - target {target_id} removed")
+                logger.debug(f"Room worker {worker_id} stopping - target {target_id} removed")
                 break
             if not spam_workers_active.get(worker_id, True):
-                print(f"Room worker {worker_id} stopping - deactivated")
+                logger.debug(f"Room worker {worker_id} stopping - deactivated")
                 break
             
             # التحقق من انتهاء المدة (5 دقائق)
             elapsed = datetime.now() - start_time
             if elapsed.total_seconds() >= duration_seconds:
-                print(f"Room worker {worker_id} - 5 minutes completed for {target_id}, stopping...")
+                logger.debug(f"Room worker {worker_id} - 5 minutes completed for {target_id}, stopping...")
                 # إيقاف العامل وإزالة الهدف
                 spam_workers_active[worker_id] = False
                 with active_spam_lock:
@@ -991,7 +991,7 @@ class FF_CLient():
             
             with connected_clients_lock:
                 connected_clients[self.id] = self
-                print(f"Account {self.id} registered, total accounts: {len(connected_clients)}")
+                logger.debug(f"Account {self.id} registered, total accounts: {len(connected_clients)}")
             
             while True:      
                 try:
@@ -1048,7 +1048,7 @@ class FF_CLient():
                     try:
                         # بدلاً من استدعاء الدالة نفسها بشكل متكرر، نترك الحلقة الخارجية تتعامل مع الإعادة
                         # أو نقوم بإعادة تهيئة الاتصال هنا مرة واحدة
-                        print(f"Attempting to reconnect account {self.id}...")
+                        logger.debug(f"Attempting to reconnect account {self.id}...")
                         # نخرج من هذه المحاولة للسماح للحلقة أو المنطق الخارجي بإعادة المحاولة
                         break 
                     except Exception as re_e:
@@ -1103,7 +1103,7 @@ class FF_CLient():
         # تجربة كل رابط في القائمة
         for url in urls:
             try:
-                print(f"Trying URL: {url}")
+                logger.debug(f"Trying URL: {url}")
                 
                 # محاولة الاتصال مع timeout وتعطيل التحقق من SSL
                 response = requests.post(
@@ -1125,27 +1125,27 @@ class FF_CLient():
                             time.sleep(0.2)
                             return self.ToKen_GeneRaTe(self.Access_ToKen, self.Access_Uid)
                         else:
-                            print(f"Response missing required fields from {url}")
+                            logger.debug(f"Response missing required fields from {url}")
                     except json.JSONDecodeError:
                         print(f"Invalid JSON response from {url}")
                 else:
-                    print(f"HTTP {response.status_code} from {url}")
+                    logger.debug(f"HTTP {response.status_code} from {url}")
                     
             except requests.exceptions.SSLError as e:
-                print(f"SSL Error with {url}: {e}")
+                logger.debug(f"SSL Error with {url}: {e}")
                 continue
             except requests.exceptions.ConnectionError as e:
-                print(f"Connection Error with {url}: {e}")
+                logger.debug(f"Connection Error with {url}: {e}")
                 continue
             except requests.exceptions.Timeout as e:
-                print(f"Timeout with {url}: {e}")
+                logger.debug(f"Timeout with {url}: {e}")
                 continue
             except Exception as e:
-                print(f"Unexpected error with {url}: {e}")
+                logger.debug(f"Unexpected error with {url}: {e}")
                 continue
         
         # إذا فشلت جميع المحاولات، انتظر وحاول مرة أخرى
-        print(f"All URLs failed for account {uid}, retrying in {self.retry_delay} seconds...")
+        logger.debug(f"All URLs failed for account {uid}, retrying in {self.retry_delay} seconds...")
         time.sleep(self.retry_delay)
         # نرجع None بدلاً من Recursion للسماح للحلقة الخارجية بالتعامل مع الإعادة
         return None
@@ -1174,14 +1174,14 @@ class FF_CLient():
                     port , port2 = address[len(address) - 5:] , address2[len(address2) - 5:]             
                     return ip , port , ip2 , port2
                 except Exception as e:
-                    print(f"Error parsing GetLoginData response: {e}")
+                    logger.debug(f"Error parsing GetLoginData response: {e}")
             else:
-                print(f"GetLoginData returned status code: {self.Res.status_code}")
+                logger.debug(f"GetLoginData returned status code: {self.Res.status_code}")
                 
         except requests.exceptions.RequestException as e:
             print(f"Request error in GeT_LoGin_PorTs: {e}")
         except Exception as e:
-            print(f"Unexpected error in GeT_LoGin_PorTs: {e}")
+            logger.debug(f"Unexpected error in GeT_LoGin_PorTs: {e}")
             
         print(" - Failed To Get Ports!")
         return None, None, None, None
@@ -1227,14 +1227,14 @@ class FF_CLient():
                     ip , port , ip2 , port2 = self.GeT_LoGin_PorTs(self.JwT_ToKen , self.PaYload)            
                     return self.JwT_ToKen , self.key , self.iv, self.combined_timestamp , ip , port , ip2 , port2
                 except Exception as e:
-                    print(f"Error parsing MajorLogin response: {e}")
+                    logger.debug(f"Error parsing MajorLogin response: {e}")
             else:
-                print(f"MajorLogin failed with status code: {self.ResPonse.status_code}")
+                logger.debug(f"MajorLogin failed with status code: {self.ResPonse.status_code}")
                 
         except requests.exceptions.RequestException as e:
             print(f"Request error in ToKen_GeneRaTe: {e}")
         except Exception as e:
-            print(f"Unexpected error in ToKen_GeneRaTe: {e}")
+            logger.debug(f"Unexpected error in ToKen_GeneRaTe: {e}")
             
         print("Retrying ToKen_GeneRaTe...")
         time.sleep(self.retry_delay)
@@ -1312,7 +1312,7 @@ def start_account(account):
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            print(f"Starting account: {account['id']} (Attempt {attempt + 1}/{max_retries})")
+            logger.debug(f"Starting account: {account['id']} (Attempt {attempt + 1}/{max_retries})")
             client = FF_CLient(account['id'], account['password'])
             if client.key and client.iv:
                 print(f"✅ Account {account['id']} connected successfully")
@@ -1346,7 +1346,7 @@ def StarT_SerVer():
             threads.append(thread)
             thread.start()
             time.sleep(0.5)  # تأخير بسيط بين الحسابات
-        print(f"✅ Started batch {i//batch_size + 1}/{(len(ACCOUNTS)-1)//batch_size + 1}")
+        logger.debug(f"✅ Started batch {i//batch_size + 1}/{(len(ACCOUNTS)-1)//batch_size + 1}")
         time.sleep(2)  # تأخير بين المجموعات
     
     print(f"✅ All {len(ACCOUNTS)} accounts started")
@@ -1360,8 +1360,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print(f"📅 Time: {datetime.now()}")
     print(f"📊 Total accounts: {len(ACCOUNTS)}")
-    print(f"🔥 Turbo Workers per target: {TURBO_WORKERS_PER_TARGET}")
-    print(f"⚡ Max Workers: {MAX_WORKERS}")
+    logger.debug(f"🔥 Turbo Workers per target: {TURBO_WORKERS_PER_TARGET}")
+    logger.debug(f"⚡ Max Workers: {MAX_WORKERS}")
     print(f"📨 Burst Size: {BURST_SIZE}")
     print(f"🔌 Connections per account: {CONNECTIONS_PER_ACCOUNT}")
     print(f"⏱️ Fixed duration: {SPAM_DURATION_MINUTES} minutes")
